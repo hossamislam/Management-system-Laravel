@@ -5,10 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller as RoutingController;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
-class AuthController extends Controller
+class AuthController extends RoutingController
 {
     public function login(Request $request)
     {
@@ -25,7 +26,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
