@@ -12,7 +12,7 @@
 **Clone the repository**
 ```bash
    git clone 
-   cd SOFTXPERT-TASK
+   cd Management-system-Laravel
 ```
 **Install dependencies**
 ```bash
