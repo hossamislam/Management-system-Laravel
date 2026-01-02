@@ -11,6 +11,26 @@
 			"item": [
 				{
 					"name": "login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"token\",pm.response.json().token)"
+								],
+								"type": "text/javascript",
+								"packages": {},
+								"requests": {}
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"packages": {},
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -72,7 +92,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "29|9p3rEl8VbB2vfQoKUYOR0p0Zdoa7a2U5QMW3jiDnf8ca8c1b",
+									"value": "42|b1VtV6vdhKV2zmbiCmkwxeWYlXGEV31SQgD827mZa70b8faa",
 									"type": "string"
 								}
 							]
@@ -124,7 +144,7 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "29|9p3rEl8VbB2vfQoKUYOR0p0Zdoa7a2U5QMW3jiDnf8ca8c1b",
+									"value": "42|b1VtV6vdhKV2zmbiCmkwxeWYlXGEV31SQgD827mZa70b8faa",
 									"type": "string"
 								}
 							]
@@ -171,10 +191,10 @@
 			]
 		},
 		{
-			"name": "asignTasks",
+			"name": "tasks",
 			"item": [
 				{
-					"name": "PostTask",
+					"name": "postTask",
 					"request": {
 						"auth": {
 							"type": "bearer",
@@ -199,12 +219,12 @@
 							"urlencoded": [
 								{
 									"key": "title",
-									"value": "post task",
+									"value": "post task43",
 									"type": "text"
 								},
 								{
 									"key": "description",
-									"value": "post another task",
+									"value": "post another task54",
 									"type": "text"
 								},
 								{
@@ -283,18 +303,63 @@
 					"response": []
 				},
 				{
-					"name": "New Request",
-					"request": {
-						"method": "GET",
-						"header": []
-					},
-					"response": []
-				},
-				{
 					"name": "getallTasks",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
 					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "35|ENLwPy7fGVAHxS911zQzSvbmjFl6TA0n1s1zeY2A6cdcf6ef",
+									"type": "string"
+								}
+							]
+						},
 						"method": "GET",
-						"header": []
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "email",
+									"value": "manager2@gmail.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "password",
+									"type": "text"
+								},
+								{
+									"key": "",
+									"value": "4",
+									"type": "text",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8000/api/tasks/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8000",
+							"path": [
+								"api",
+								"tasks",
+								""
+							]
+						}
 					},
 					"response": []
 				},
@@ -336,7 +401,7 @@
 								},
 								{
 									"key": "status",
-									"value": "completed",
+									"value": "pending",
 									"type": "text"
 								}
 							]

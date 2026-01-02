@@ -19,5 +19,5 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::apiResource('tasks', TaskController::class);
 
-    Route::post('tasks/{id}/dependencies', [TaskController::class, 'addDependencies']);
+    Route::post('tasks/{task}/dependencies', [TaskController::class, 'addDependencies']);
 });
