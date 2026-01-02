@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as RoutingController;
@@ -10,7 +11,16 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends RoutingController
 {
-    public function login(Request $request)
+    public function userResponse(User $user)
+{
+    return [
+        'id' => $user->id,
+        'name' => $user->name,
+        'email' => $user->email,
+        'role' => $user->role,
+    ];
+}
+    public function login(LoginRequest $request)
     {
         $request->validate([
             'email' => 'required|email',
@@ -28,13 +38,8 @@ class AuthController extends RoutingController
         $token = $user->createToken('Api_Token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-            ],
+            'message' => 'Login successful',    
+            'user' => $this->userResponse($user),
             'token' => $token,
         ], 200);
     }
@@ -51,12 +56,7 @@ class AuthController extends RoutingController
     public function currentUser(Request $request)
     {
        return response()->json([
-            'user' => [
-                'id' => $request->user()->id,
-                'name' => $request->user()->name,
-                'email' => $request->user()->email,
-                'role' => $request->user()->role,
-            ],
+            'user' =>$this->userResponse($request->user()),
         ], 200);
    
  
