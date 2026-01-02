@@ -2,74 +2,63 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Requests\AddDependenciesRequest;
+use App\Http\Requests\StoreTaskRequest;
+use App\Http\Requests\UpdateTaskRequest;
+use App\Http\Requests\UpdateTaskStatusRequest;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as RoutingController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class TaskController extends RoutingController
 {
-    public function index(Request $request)
+ public function index(Request $request)
+{
+    $user = $request->user();
+
+    $tasks = Task::with(['assignedUser', 'creator', 'dependencies'])
+        ->when($user->isUser(), function ($q) use ($user) {
+            $q->where('assigned_to', $user->id);
+        })
+        ->when($request->status, function ($q, $status) {
+            $q->where('status', $status);
+        })
+        ->when($request->due_date_from, function ($q, $from) {
+            $q->where('due_date', '>=', $from);
+        })
+        ->when($request->due_date_to, function ($q, $to) {
+            $q->where('due_date', '<=', $to);
+        })
+        ->when($request->assigned_to && $user->isManager(), function ($q) use ($request) {
+            $q->where('assigned_to', $request->assigned_to);
+        })
+        ->orderByDesc('created_at')
+        ->paginate(15);
+
+    return response()->json($tasks);
+}
+
+
+    public function store(StoreTaskRequest $request)
     {
-        $query = Task::with(['assignedUser', 'creator', 'dependencies']);
-
-        if ($request->user()->isUser()) {
-            $query->where('assigned_to', $request->user()->id);
-        }
-
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->has('due_date_from')) {
-            $query->where('due_date', '>=', $request->due_date_from);
-        }
-
-        if ($request->has('due_date_to')) {
-            $query->where('due_date', '<=', $request->due_date_to);
-        }
-
-        if ($request->has('assigned_to') && $request->user()->isManager()) {
-            $query->where('assigned_to', $request->assigned_to);
-        }
-
-        $tasks = $query->orderBy('created_at', 'desc')->paginate(15);
-
-        return response()->json($tasks, 200);
-    }
-
-    public function store(Request $request)
-    {
-        if (!$request->user()->isManager()) {
-            return response()->json([
-                'message' => 'Unauthorized. Only managers can create tasks.',
-            ], 403);
-        }
-
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'due_date' => 'nullable|date|after_or_equal:today',
-            'assigned_to' => 'nullable|exists:users,id',
-            'dependencies' => 'nullable|array',
-            'dependencies.*' => 'exists:tasks,id',
-        ]);
+ 
 
         DB::beginTransaction();
         try {
             $task = Task::create([
-                'title' => $validated['title'],
-                'description' => $validated['description'] ?? null,
-                'due_date' => $validated['due_date'] ?? null,
-                'assigned_to' => $validated['assigned_to'] ?? null,
+                'title' => $request['title'],
+                'description' => $request['description'] ?? null,
+                'due_date' => $request['due_date'] ?? null,
+                'assigned_to' => $request['assigned_to'] ?? null,
                 'created_by' => $request->user()->id,
                 'status' => 'pending',
             ]);
 
-            if (isset($validated['dependencies'])) {
-                foreach ($validated['dependencies'] as $depId) {
+            if (isset($request['dependencies'])) {
+                foreach ($request['dependencies'] as $depId) {
                     if ($this->wouldCreateCircularDependency($task->id, $depId)) {
                         DB::rollBack();
                         return response()->json([
@@ -77,13 +66,10 @@ class TaskController extends RoutingController
                         ], 422);
                     }
                 }
-                $task->dependencies()->attach($validated['dependencies']);
+                $task->dependencies()->attach($request['dependencies']);
             }
-
             DB::commit();
-
             $task->load(['assignedUser', 'creator', 'dependencies']);
-
             return response()->json([
                 'message' => 'Task created successfully',
                 'task' => $task,
@@ -116,66 +102,41 @@ class TaskController extends RoutingController
         return response()->json($task, 200);
     }
 
-    public function update(Request $request, $id)
-    {
-        $task = Task::find($id);
+public function update(Request $request, $id)
+{
+    $task = Task::findOrFail($id);
 
-        if (!$task) {
-            return response()->json([
-                'message' => 'Task not found',
-            ], 404);
-        }
+    if ($request->user()->isUser()) {
 
-        if ($request->user()->isUser()) {
-            if ($task->assigned_to !== $request->user()->id) {
-                return response()->json([
-                    'message' => 'Unauthorized. You can only update tasks assigned to you.',
-                ], 403);
-            }
+        $request = app(UpdateTaskStatusRequest::class);
 
-            $validated = $request->validate([
-                'status' => ['required', Rule::in(['pending', 'completed', 'canceled'])],
-            ]);
-
-            if ($validated['status'] === 'completed' && !$task->canBeCompleted()) {
-                return response()->json([
-                    'message' => 'Cannot complete task. There are pending dependencies.',
-                ], 422);
-            }
-
-            $task->update(['status' => $validated['status']]);
-
-            $task->load(['assignedUser', 'creator', 'dependencies']);
-
-            return response()->json([
-                'message' => 'Task status updated successfully',
-                'task' => $task,
-            ], 200);
-        }
-
-        $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'status' => ['sometimes', Rule::in(['pending', 'completed', 'canceled'])],
-            'due_date' => 'nullable|date|after_or_equal:today',
-            'assigned_to' => 'nullable|exists:users,id',
-        ]);
-
-        if (isset($validated['status']) && $validated['status'] === 'completed' && !$task->canBeCompleted()) {
+        if ($request->status === 'completed' && !$task->canBeCompleted()) {
             return response()->json([
                 'message' => 'Cannot complete task. There are pending dependencies.',
             ], 422);
         }
 
-        $task->update($validated);
+        $task->update(['status' => $request->status]);
 
-        $task->load(['assignedUser', 'creator', 'dependencies']);
+    } else {
 
-        return response()->json([
-            'message' => 'Task updated successfully',
-            'task' => $task,
-        ], 200);
+        $request = app(UpdateTaskRequest::class);
+
+        if ($request->status === 'completed' && !$task->canBeCompleted()) {
+            return response()->json([
+                'message' => 'Cannot complete task. There are pending dependencies.',
+            ], 422);
+        }
+
+        $task->update($request->validated());
     }
+
+    return response()->json([
+        'message' => 'Task updated successfully',
+        'task' => $task->load(['assignedUser', 'creator', 'dependencies']),
+    ]);
+}
+
 
     public function destroy(Request $request, $id)
     {
@@ -200,60 +161,39 @@ class TaskController extends RoutingController
         ], 200);
     }
 
-    public function addDependencies(Request $request, $id)
-    {
-        if (!$request->user()->isManager()) {
-            return response()->json([
-                'message' => 'Unauthorized. Only managers can add dependencies.',
-            ], 403);
-        }
+public function addDependencies(AddDependenciesRequest $request, Task $task)
+{
+    DB::beginTransaction();
 
-        $task = Task::find($id);
+    try {
+        foreach ($request->dependencies as $depId) {
 
-        if (!$task) {
-            return response()->json([
-                'message' => 'Task not found',
-            ], 404);
-        }
-
-        $validated = $request->validate([
-            'dependencies' => 'required|array',
-            'dependencies.*' => 'exists:tasks,id',
-        ]);
-
-        DB::beginTransaction();
-        try {
-            foreach ($validated['dependencies'] as $depId) {
-                if ($task->dependencies()->where('depends_on_task_id', $depId)->exists()) {
-                    continue;
-                }
-
-                if ($this->wouldCreateCircularDependency($task->id, $depId)) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Circular dependency detected.',
-                    ], 422);
-                }
-
-                $task->dependencies()->attach($depId);
+            if ($task->dependencies()->where('depends_on_task_id', $depId)->exists()) {
+                continue;
             }
 
-            DB::commit();
-
-            $task->load(['dependencies']);
-
-            return response()->json([
-                'message' => 'Dependencies added successfully',
-                'task' => $task,
-            ], 200);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'Failed to add dependencies',
-                'error' => $e->getMessage(),
-            ], 500);
+            if ($this->wouldCreateCircularDependency($task->id, $depId)) {
+                throw ValidationException::withMessages([
+                    'dependencies' => 'Circular dependency detected',
+                ]);
+            }
+            $task->dependencies()->attach($depId);
         }
+        DB::commit();
+        return response()->json([
+            'message' => 'Dependencies added successfully',
+            'task' => $task->load('dependencies'),
+        ], 200);
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Failed to add dependencies',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     private function wouldCreateCircularDependency($taskId, $dependencyId)
     {

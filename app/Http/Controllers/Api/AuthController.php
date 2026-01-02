@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends RoutingController
 {
-    public function userResponse(User $user)
+    public function ResponseHelper (User $user)
 {
     return [
         'id' => $user->id,
@@ -22,10 +22,6 @@ class AuthController extends RoutingController
 }
     public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
 
         $user = User::where('email', $request->email)->first();
 
@@ -39,7 +35,7 @@ class AuthController extends RoutingController
 
         return response()->json([
             'message' => 'Login successful',    
-            'user' => $this->userResponse($user),
+            'user' => $this->ResponseHelper($user),
             'token' => $token,
         ], 200);
     }
@@ -56,7 +52,7 @@ class AuthController extends RoutingController
     public function currentUser(Request $request)
     {
        return response()->json([
-            'user' =>$this->userResponse($request->user()),
+            'user' =>$this->ResponseHelper($request->user()),
         ], 200);
    
  
