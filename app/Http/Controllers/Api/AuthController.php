@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as RoutingController;
@@ -26,7 +25,7 @@ class AuthController extends RoutingController
             ]);
         }
 
-        $token = $user->createToken('api-token')->plainTextToken;
+        $token = $user->createToken('Api_Token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
@@ -51,7 +50,7 @@ class AuthController extends RoutingController
 
     public function currentUser(Request $request)
     {
-        return response()->json([
+       return response()->json([
             'user' => [
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
@@ -59,5 +58,7 @@ class AuthController extends RoutingController
                 'role' => $request->user()->role,
             ],
         ], 200);
+   
+ 
     }
 }
